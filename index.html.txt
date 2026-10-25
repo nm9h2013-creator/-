@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>美食電話簿 Foodie Phonebook</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome 圖示庫 CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        // 設定 Tailwind CSS 自訂顏色與字體
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'Microsoft JhengHei', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#fff7ed',
+                            100: '#ffedd5',
+                            500: '#f97316', // 主色調亮橘
+                            600: '#ea580c',
+                            700: '#c2410c',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* 隱藏橫向滾動條但保持滾動功能 */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        /* 按壓體驗優化 */
+        .touch-active:active {
+            transform: scale(0.97);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans pb-24 selection:bg-brand-100 selection:text-brand-600">
+
+    <!-- 頂部 Header -->
+    <header class="sticky top-0 z-30 bg-white/90 backdrop-blur-md shadow-sm border-b border-slate-100 px-4 py-3">
+        <div class="max-w-md mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+                <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-brand-500 to-amber-400 flex items-center justify-center text-white shadow-md shadow-brand-500/20">
+                    <i class="fa-solid font-bold fa-utensils text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg text-slate-900 leading-tight">美食電話簿</h1>
+                    <p class="text-xs text-slate-400 font-medium">口袋餐廳與手搖快速撥號</p>
+                </div>
+            </div>
+            <!-- 設定/選單按鈕 -->
+            <button onclick="toggleBackupModal()" class="w-9 h-9 rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 flex items-center justify-center transition-colors" title="備份與工具">
+                <i class="fa-solid fa-sliders text-sm"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- 主要內容區 -->
+    <main class="max-w-md mx-auto w-full px-4 pt-4 flex-1">
+
+        <!-- 搜尋列 -->
+        <div class="relative mb-4">
+            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+            <input type="text" id="searchInput" oninput="handleSearch()" placeholder="搜尋店家名稱或電話..." 
+                class="w-full pl-10 pr-9 py-2.5 bg-white rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm">
+            <button id="clearSearchBtn" onclick="clearSearch()" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                <i class="fa-solid fa-circle-xmark text-sm"></i>
+            </button>
+        </div>
+
+        <!-- 分類標籤頁（橫向滾動） -->
+        <div class="flex items-center gap-2 overflow-x-auto no-scrollbar mb-4 -mx-4 px-4 py-1" id="categoryTabs">
+            <!-- 分類標籤由 JS 動態生成 -->
+        </div>
+
+        <!-- 店家列表 -->
+        <div id="shopList" class="space-y-3">
+            <!-- 店家卡片由 JS 動態產生 -->
+        </div>
+
+        <!-- 空白狀態提示（無資料時顯示） -->
+        <div id="emptyState" class="hidden flex-col items-center justify-center py-16 text-center">
+            <div class="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center text-slate-300 mb-3 text-3xl">
+                <i class="fa-solid fa-store-slash"></i>
+            </div>
+            <p class="text-slate-500 font-medium text-sm">尚無相關店家紀錄</p>
+            <p class="text-slate-400 text-xs mt-1">點擊右下角「+」按鈕開始新增吧！</p>
+        </div>
+    </main>
+
+    <!-- 懸浮新增按鈕 (FAB) -->
+    <button onclick="openAddModal()" class="fixed right-5 bottom-6 z-20 w-14 h-14 bg-gradient-to-r from-brand-500 to-amber-500 text-white rounded-full shadow-lg shadow-brand-500/40 flex items-center justify-center text-2xl active:scale-95 transition-transform" title="新增店家">
+        <i class="fa-solid fa-plus"></i>
+    </button>
+
+    <!-- Modal 1: 新增店家對話框 -->
+    <div id="addModal" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-end sm:items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200">
+        <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-2xl p-6 shadow-xl transform translate-y-full sm:translate-y-0 transition-transform duration-200" id="addModalCard">
+            <div class="flex justify-between items-center mb-5">
+                <h3 class="text-lg font-bold text-slate-800">新增口袋店家</h3>
+                <button onclick="closeAddModal()" class="text-slate-400 hover:text-slate-600 w-8 h-8 flex items-center justify-center">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <form id="addForm" onsubmit="saveShop(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">店家名稱 *</label>
+                    <input type="text" id="shopName" required placeholder="例：50嵐 (站前店)" 
+                        class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">電話號碼 *</label>
+                    <input type="tel" id="shopPhone" required placeholder="例：0223456789 或 0912345678" 
+                        class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">選擇分類</label>
+                    <div class="grid grid-cols-3 gap-2" id="categoryOptions">
+                        <!-- 由 JS 生成分類單選鈕 -->
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">備註/推薦餐點 (選填)</label>
+                    <input type="text" id="shopNote" placeholder="例：必點珍奶半糖微冰、滿$300外送" 
+                        class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500">
+                </div>
+                <button type="submit" class="w-full py-3 bg-brand-500 hover:bg-brand-600 text-white font-semibold rounded-xl shadow-md shadow-brand-500/20 active:scale-[0.98] transition-all text-sm mt-2">
+                    儲存店家紀錄
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal 2: 備份與管理對話框 -->
+    <div id="backupModal" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
+        <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-slate-800">資料管理與備份</h3>
+                <button onclick="toggleBackupModal()" class="text-slate-400 hover:text-slate-600 w-8 h-8 flex items-center justify-center">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <p class="text-xs text-slate-500 mb-4 leading-relaxed">您的店家資料皆儲存在此手機瀏覽器中。您可匯出 JSON 備份檔，或導入備份資料。</p>
+            
+            <div class="space-y-2.5">
+                <button onclick="exportData()" class="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl text-sm flex items-center justify-between transition-colors">
+                    <span><i class="fa-solid fa-download mr-2 text-brand-500"></i>匯出 JSON 備份檔</span>
+                    <i class="fa-solid fa-chevron-right text-xs text-slate-400"></i>
+                </button>
+                <label class="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl text-sm flex items-center justify-between cursor-pointer transition-colors">
+                    <span><i class="fa-solid fa-upload mr-2 text-brand-500"></i>匯入 JSON 備份檔</span>
+                    <input type="file" id="importFileInput" accept=".json" onchange="importData(event)" class="hidden">
+                    <i class="fa-solid fa-chevron-right text-xs text-slate-400"></i>
+                </label>
+                <button onclick="resetDefaultData()" class="w-full py-2.5 px-4 bg-red-50 hover:bg-red-100 text-red-600 font-medium rounded-xl text-sm flex items-center justify-between transition-colors mt-4">
+                    <span><i class="fa-solid fa-rotate-left mr-2"></i>重置為範例資料</span>
+                    <i class="fa-solid fa-chevron-right text-xs text-red-400"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 吐司通知 (Toast Notification) -->
+    <div id="toast" class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-slate-800/90 text-white text-xs px-4 py-2.5 rounded-full shadow-lg backdrop-blur-sm opacity-0 pointer-events-none transition-all duration-300 flex items-center gap-2">
+        <i class="fa-solid fa-circle-check text-brand-500" id="toastIcon"></i>
+        <span id="toastMsg">已成功處理</span>
+    </div>
+
+    <!-- JavaScript 邏輯區 -->
+    <script>
+        // 定義全域類別清單與圖示配對
+        const CATEGORIES = [
+            { id: '全部', label: '全部', icon: 'fa-list-ul', color: 'bg-slate-100 text-slate-600 border-slate-200' },
+            { id: '午餐', label: '午餐', icon: 'fa-bowl-rice', color: 'bg-amber-50 text-amber-600 border-amber-200' },
+            { id: '手搖飲', label: '手搖飲', icon: 'fa-glass-water', color: 'bg-teal-50 text-teal-600 border-teal-200' },
+            { id: '晚餐', label: '晚餐', icon: 'fa-utensils', color: 'bg-orange-50 text-orange-600 border-orange-200' },
+            { id: '聚餐', label: '聚餐', icon: 'fa-users', color: 'bg-purple-50 text-purple-600 border-purple-200' },
+            { id: '其他', label: '其他', icon: 'fa-store', color: 'bg-blue-50 text-blue-600 border-blue-200' }
+        ];
+
+        // 初次開啟預設範例資料
+        const DEFAULT_SHOPS = [
+            { id: '1', name: '50嵐 (台北信義店)', phone: '02-2720-5050', category: '手搖飲', note: '1號四季春珍波椰必點' },
+            { id: '2', name: '鼎泰豐 (信義店)', phone: '02-2321-8928', category: '聚餐', note: '招牌小籠包、紅油抄手' },
+            { id: '3', name: '迷客夏 Milksha', phone: '02-2700-1234', category: '手搖飲', note: '大甲芋頭鮮奶' },
+            { id: '4', name: '池上木片便當', phone: '02-2500-9988', category: '午餐', note: '招牌排骨便當 $100' },
+            { id: '5', name: '海底撈火鍋', phone: '02-7737-6666', category: '晚餐', note: '提早電話預約訂位' }
+        ];
+
+        // 應用程式狀態管理
+        let shops = [];
+        let activeCategory = '全部';
+        let searchQuery = '';
+        let selectedCategoryForAdd = '午餐';
+
+        // 頁面載入完成後初始化
+        window.onload = function() {
+            loadShops();
+            renderCategoryTabs();
+            renderCategoryOptions();
+            renderShops();
+        };
+
+        // 1. 資料存取 (LocalStorage)
+        function loadShops() {
+            const savedData = localStorage.getItem('foodie_phonebook_data');
+            if (savedData) {
+                try {
+                    shops = JSON.parse(savedData);
+                } catch(e) {
+                    console.error('讀取資料錯誤', e);
+                    shops = [...DEFAULT_SHOPS];
+                }
+            } else {
+                shops = [...DEFAULT_SHOPS];
+                saveShopsToStorage();
+            }
+        }
+
+        function saveShopsToStorage() {
+            localStorage.setItem('foodie_phonebook_data', JSON.stringify(shops));
+        }
+
+        // 2. 渲染 UI 元件
+        function renderCategoryTabs() {
+            const tabsContainer = document.getElementById('categoryTabs');
+            tabsContainer.innerHTML = CATEGORIES.map(cat => {
+                const isActive = activeCategory === cat.id;
+                const activeStyle = isActive 
+                    ? 'bg-brand-500 text-white font-semibold shadow-sm' 
+                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200';
+                return `
+                    <button onclick="selectCategory('${cat.id}')" 
+                        class="px-3.5 py-1.5 rounded-full text-xs whitespace-nowrap transition-all flex items-center gap-1.5 ${activeStyle}">
+                        <i class="fa-solid ${cat.icon}"></i>
+                        <span>${cat.label}</span>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function renderCategoryOptions() {
+            const optionsContainer = document.getElementById('categoryOptions');
+            const selectableCats = CATEGORIES.filter(c => c.id !== '全部');
+            optionsContainer.innerHTML = selectableCats.map(cat => {
+                const isSelected = selectedCategoryForAdd === cat.id;
+                const activeStyle = isSelected 
+                    ? 'bg-brand-50 border-brand-500 text-brand-600 font-semibold' 
+                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100';
+                return `
+                    <button type="button" onclick="setAddCategory('${cat.id}')" 
+                        class="py-2 px-3 border rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all ${activeStyle}">
+                        <i class="fa-solid ${cat.icon}"></i>
+                        <span>${cat.label}</span>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function renderShops() {
+            const shopList = document.getElementById('shopList');
+            const emptyState = document.getElementById('emptyState');
+
+            // 根據「分類」與「關鍵字搜尋」過濾資料
+            const filteredShops = shops.filter(shop => {
+                const matchCategory = (activeCategory === '全部') || (shop.category === activeCategory);
+                const matchSearch = shop.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                    shop.phone.includes(searchQuery);
+                return matchCategory && matchSearch;
+            });
+
+            if (filteredShops.length === 0) {
+                shopList.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                emptyState.classList.add('flex');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            emptyState.classList.remove('flex');
+
+            shopList.innerHTML = filteredShops.map(shop => {
+                const catObj = CATEGORIES.find(c => c.id === shop.category) || CATEGORIES[5];
+                // 處理電話格式乾淨化 (供 tel: 連結使用)
+                const cleanPhone = shop.phone.replace(/[^0-9+]/g, '');
+
+                return `
+                    <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${catObj.color}">
+                                        <i class="fa-solid ${catObj.icon}"></i>
+                                        ${shop.category}
+                                    </span>
+                                    <h3 class="font-bold text-slate-800 text-base truncate">${escapeHtml(shop.name)}</h3>
+                                </div>
+                                <div class="text-slate-500 text-xs flex items-center gap-1.5 mt-1">
+                                    <i class="fa-solid fa-phone text-slate-400 text-[11px]"></i>
+                                    <span class="font-mono text-slate-700 font-medium">${escapeHtml(shop.phone)}</span>
+                                </div>
+                                ${shop.note ? `
+                                    <p class="text-xs text-slate-400 mt-2 bg-slate-50 p-2 rounded-lg border border-slate-100 inline-block w-full">
+                                        <i class="fa-regular fa-note-sticky mr-1 text-slate-400"></i>${escapeHtml(shop.note)}
+                                    </p>
+                                ` : ''}
+                            </div>
+                        </div>
+
+                        <!-- 卡片操作按鈕群組 -->
+                        <div class="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
+                            <!-- 一鍵撥號按鈕 (核心需求) -->
+                            <a href="tel:${cleanPhone}" class="flex-1 py-2 px-3 bg-brand-500 hover:bg-brand-600 text-white font-medium rounded-xl text-xs flex items-center justify-center gap-1.5 touch-active shadow-sm shadow-brand-500/20 transition-colors">
+                                <i class="fa-solid fa-phone-flip text-xs"></i>
+                                <span>立即撥號</span>
+                            </a>
+                            
+                            <!-- 複製電話按鈕 -->
+                            <button onclick="copyToClipboard('${escapeHtml(shop.phone)}')" class="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium rounded-xl text-xs flex items-center justify-center gap-1 transition-colors" title="複製號碼">
+                                <i class="fa-regular fa-copy text-xs"></i>
+                                <span class="hidden sm:inline">複製</span>
+                            </button>
+
+                            <!-- 刪除按鈕 -->
+                            <button onclick="deleteShop('${shop.id}')" class="py-2 px-3 bg-red-50 hover:bg-red-100 text-red-500 font-medium rounded-xl text-xs flex items-center justify-center transition-colors" title="刪除店家">
+                                <i class="fa-regular fa-trash-can text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 3. 事件處理與操作邏輯
+        function selectCategory(catId) {
+            activeCategory = catId;
+            renderCategoryTabs();
+            renderShops();
+        }
+
+        function setAddCategory(catId) {
+            selectedCategoryForAdd = catId;
+            renderCategoryOptions();
+        }
+
+        function handleSearch() {
+            const input = document.getElementById('searchInput');
+            searchQuery = input.value.trim();
+            const clearBtn = document.getElementById('clearSearchBtn');
+            if (searchQuery.length > 0) {
+                clearBtn.classList.remove('hidden');
+            } else {
+                clearBtn.classList.add('hidden');
+            }
+            renderShops();
+        }
+
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            searchQuery = '';
+            document.getElementById('clearSearchBtn').classList.add('hidden');
+            renderShops();
+        }
+
+        function saveShop(e) {
+            e.preventDefault();
+            const nameInput = document.getElementById('shopName');
+            const phoneInput = document.getElementById('shopPhone');
+            const noteInput = document.getElementById('shopNote');
+
+            const newShop = {
+                id: Date.now().toString(),
+                name: nameInput.value.trim(),
+                phone: phoneInput.value.trim(),
+                category: selectedCategoryForAdd,
+                note: noteInput.value.trim()
+            };
+
+            shops.unshift(newShop); // 新增在最前面
+            saveShopsToStorage();
+            renderShops();
+            closeAddModal();
+
+            // 重置表單
+            nameInput.value = '';
+            phoneInput.value = '';
+            noteInput.value = '';
+            showToast('已成功新增店家！');
+        }
+
+        function deleteShop(id) {
+            // 使用自訂 UI 風格確認，避免瀏覽器原生的不美觀 alert
+            if (confirm('確定要刪除這家店家資料嗎？')) {
+                shops = shops.filter(s => s.id !== id);
+                saveShopsToStorage();
+                renderShops();
+                showToast('已刪除店家紀錄');
+            }
+        }
+
+        function copyToClipboard(text) {
+            // 處理 iFrame 限制的兼容複製方式
+            const tempInput = document.createElement('input');
+            tempInput.value = text;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            try {
+                document.execCommand('copy');
+                showToast('電話號碼已複製到剪貼簿！');
+            } catch (err) {
+                showToast('複製失敗，請手動複製');
+            }
+            document.body.removeChild(tempInput);
+        }
+
+        // 4. Modal 彈窗控制
+        function openAddModal() {
+            const modal = document.getElementById('addModal');
+            const card = document.getElementById('addModalCard');
+            modal.classList.remove('pointer-events-none', 'opacity-0');
+            modal.classList.add('opacity-100');
+            card.classList.remove('translate-y-full');
+            card.classList.add('translate-y-0');
+        }
+
+        function closeAddModal() {
+            const modal = document.getElementById('addModal');
+            const card = document.getElementById('addModalCard');
+            card.classList.remove('translate-y-0');
+            card.classList.add('translate-y-full');
+            modal.classList.remove('opacity-100');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+        }
+
+        function toggleBackupModal() {
+            const modal = document.getElementById('backupModal');
+            if (modal.classList.contains('opacity-0')) {
+                modal.classList.remove('pointer-events-none', 'opacity-0');
+                modal.classList.add('opacity-100');
+            } else {
+                modal.classList.remove('opacity-100');
+                modal.classList.add('opacity-0', 'pointer-events-none');
+            }
+        }
+
+        // 5. 資料匯出/匯入/重置
+        function exportData() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(shops, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `foodie_phonebook_${new Date().toISOString().slice(0,10)}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            showToast('已成功下載 JSON 備份檔！');
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedShops = JSON.parse(e.target.result);
+                    if (Array.isArray(importedShops)) {
+                        shops = importedShops;
+                        saveShopsToStorage();
+                        renderShops();
+                        toggleBackupModal();
+                        showToast('成功匯入備份資料！');
+                    } else {
+                        showToast('匯入失敗：格式不正確');
+                    }
+                } catch(err) {
+                    showToast('匯入失敗：檔案無法解析');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function resetDefaultData() {
+            if (confirm('確定要恢復成預設的範例資料嗎？您自己新增的店家將會被覆蓋。')) {
+                shops = [...DEFAULT_SHOPS];
+                saveShopsToStorage();
+                renderShops();
+                toggleBackupModal();
+                showToast('已重置為預設資料');
+            }
+        }
+
+        // 6. 吐司提示 (Toast)
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            toastMsg.textContent = message;
+            toast.classList.remove('opacity-0', 'pointer-events-none', 'bottom-20');
+            toast.classList.add('opacity-100', 'bottom-24');
+
+            setTimeout(() => {
+                toast.classList.remove('opacity-100', 'bottom-24');
+                toast.classList.add('opacity-0', 'pointer-events-none', 'bottom-20');
+            }, 2500);
+        }
+
+        // 防 XSS 輔助函式
+        function escapeHtml(str) {
+            return String(str).replace(/[&<>"']/g, function(m) {
+                return {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                }[m];
+            });
+        }
+    </script>
+</body>
+</html>
